@@ -5,6 +5,18 @@
 
 set -e
 
+# Auto-patch: If bashio returns localhost for MQTT, automatically use core-mosquitto
+# This fixes the issue in Home Assistant Supervised installations
+_auto_fix_mqtt_host() {
+  MQTT_HOST_FROM_SERVICES=$(bashio::services mqtt "host" 2>/dev/null || echo "localhost")
+  if [ "$MQTT_HOST_FROM_SERVICES" = "localhost" ] || [ "$MQTT_HOST_FROM_SERVICES" = "127.0.0.1" ]; then
+    # Auto-fix: Use core-mosquitto for Supervised installations
+    export MQTT_HOST="core-mosquitto"
+  else
+    export MQTT_HOST="$MQTT_HOST_FROM_SERVICES"
+  fi
+}
+
 export FH_HUB_IP=$(bashio::config 'hub_ip')
 export FH_USERNAME=$(bashio::config 'fh_username')
 export FH_PASSWORD=$(bashio::config 'fh_password')
@@ -15,18 +27,12 @@ export IGNORE_AVAILABILITY_REPORTS=$(bashio::config 'ignore_availability_reports
 export DEMO_MODE=$(bashio::config 'demo_mode')
 export SHOW_DEBUG_LOG=$(bashio::config 'show_debug_log')
 
-# Use mqtt_broker from config if provided, otherwise fall back to bashio services
+# Use mqtt_broker from config if provided, otherwise use auto-fix
 MQTT_BROKER_CONFIG=$(bashio::config 'mqtt_broker')
 if [ -n "$MQTT_BROKER_CONFIG" ]; then
   export MQTT_HOST="$MQTT_BROKER_CONFIG"
 else
-  MQTT_HOST_FROM_SERVICES=$(bashio::services mqtt "host")
-  # If bashio returns localhost (common in Supervised), use core-mosquitto instead
-  if [ "$MQTT_HOST_FROM_SERVICES" = "localhost" ] || [ "$MQTT_HOST_FROM_SERVICES" = "127.0.0.1" ]; then
-    export MQTT_HOST="core-mosquitto"
-  else
-    export MQTT_HOST="$MQTT_HOST_FROM_SERVICES"
-  fi
+  _auto_fix_mqtt_host
 fi
 export MQTT_PORT=$(bashio::services mqtt "port")
 export MQTT_USER=$(bashio::services mqtt "username")
