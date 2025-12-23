@@ -20,7 +20,13 @@ MQTT_BROKER_CONFIG=$(bashio::config 'mqtt_broker')
 if [ -n "$MQTT_BROKER_CONFIG" ]; then
   export MQTT_HOST="$MQTT_BROKER_CONFIG"
 else
-  export MQTT_HOST=$(bashio::services mqtt "host")
+  MQTT_HOST_FROM_SERVICES=$(bashio::services mqtt "host")
+  # If bashio returns localhost (common in Supervised), use core-mosquitto instead
+  if [ "$MQTT_HOST_FROM_SERVICES" = "localhost" ] || [ "$MQTT_HOST_FROM_SERVICES" = "127.0.0.1" ]; then
+    export MQTT_HOST="core-mosquitto"
+  else
+    export MQTT_HOST="$MQTT_HOST_FROM_SERVICES"
+  fi
 fi
 export MQTT_PORT=$(bashio::services mqtt "port")
 export MQTT_USER=$(bashio::services mqtt "username")
